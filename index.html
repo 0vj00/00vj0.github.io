@@ -1,1 +1,31 @@
 Hello World!!
+
+ILSVRC history:
+Classification: Alexnet, Zeiler & Fergus, GoogLeNet (VGG), ResNet 
+Localization: Alexnet, OverFeat, VGG, ResNet + RPN
+Detection: ?, OverFeat, UvA-Euvision, GoogLeNet, ResNet + Faster-R-CNN
+
+Datasets:
+NORB
+Caltech 101 / 256
+CIFAR 10 / 100
+MNIST
+Imagenet - 15 million labeled images / 22000 categories
+ILSVRC - 1.2 million labeled images, 50000 validation, 150000 testing. ~1000 images in each of 1000 categories
+ILSVRC 2010 - test set labels are available
+
+Preprocessing:
+
+
+
+
+Title: ImageNet Classification with Deep Convolutional Neural Networks
+
+Notes: 
+60 million params, 650K neurons, dropout regularization, Relu
+ILSVRC 2010 & 2012
+1.2 million labeled images
+5-6 days on 2 GTX580
+rescaled img such that shorter side of image is 256. central 256x256 cropped out
+subtracted the mean value, over training set, per pixel
+
