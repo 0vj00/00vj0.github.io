@@ -18,6 +18,9 @@ ILSVRC 2013 - localization considered correct only if > 50% overlap (intersectio
 detection challenge may have zero objects (i.e. background class). background class makes detection harder.
 localization and classification share data. detection has few more data points: images where the objects are smaller, images where
 certain objects are absent (can be used for background class)
+classification winner was clarifai ~11% (results in overfeat paper)
+
+ILSVRC 2012 and 2013 have the same train and test data? (mentioned in overfeat)
 
 Preprocessing:
 
@@ -36,6 +39,8 @@ neighboring kernels (n/2 on either side) raised to beta (hyperparameter).
 This ties the activations together, e.g. two activations can't both be high
 Image similarity can be determined by L2 norm on the last hidden layer's representation of image. E.g. when used on ILSVRC, this 
 retrieves similar images which in pixel-level-L2 would be far off.
+Convolutions over entire image is more efficient than computing entire pipeline for each sliding window due to convolutions 
+reusing overlapping computations (see fig 5 of Overfeat)
 
 Optimization:
 GD:
@@ -138,3 +143,45 @@ FC:
 layer 7: 1 X 1 X 4096
 softmax: 1000 classes
 
+Accurate:
+
+Compared to Alexnet (60 million parameters), overfeat has ~ 2X more (~140 million parameters). 
+Applies to both the fast, accurate models.
+
+Inference:
+applied in a sliding window manner to 6 resolutions + their horizontal flip
+Subsampling loss from accurate model is 2 (stride) X 3 (max-pool) X 2 (max-pool) X 3 (max-pool)
+Can get rid of the last factor as follows:
+apply layer 5 max-pool for all 9 (3X3) offsets of x, y. we obtain 9 versions of layer 5. 
+apply rest of the net and obtain 9 versions of classification results (application for each version is in sliding manner, so 
+the output will be a spatial classification map). interleave the 9 versions (e.g. x = 0 followed by x = 1, x = 2)
+For each resolution + flip, each class's metric is taken as spatial max
+the resulting 1000 dimensional vector is averaged across the resolutions and flips
+the 6 resolutions have dimensions ranging from 245 to 569 and various aspect ratios
+
+Results:
+on ILSVRC 2012
+Alexnet: top 5: 18.2
+OverFeat fast model: single scale top 5: 16.97; six scales top 5: 16.27; 7 models 4 scales top 5: 13.8
+
+Localization:
+uses same feature extractor as classification but has a new regressor network on top of layer 5
+layer 5:
+FC:
+layer 6: 1 X 1 X 4096
+FC: 
+layer 7: 1 X 1 X 1024
+FC:
+layer 8: 1 X 1 X 4 (coordinates) for each class; i.e. 1 X 1 X 4000
+
+Training:
+fix the feature extraction layers (up to layer 5). Train the regressor network using L2 loss on true coordinates. However, do 
+not train on bounding boxes that have less than 50% overlap on the field of view. Also, regressor is trained on the 6 scales.
+
+Inference:
+Similar to classification, multiple 3 X 3 offsets of layer 5 are evaluated.
+Bounding box predictions are combined across scales and spatially to form a set of bounding box candidates. From this set, 
+merge candidates are chosen as those who have smallest distance from their center to the center of their overlap. If this 
+distance exceeds a threshold, merging stops. The candidates are merged by averaging their corner coordinates.
+The class scores for the merged box is the sum of scores associated w/ input window corresponding to each bounding box that
+participates in the merge.
