@@ -19,6 +19,7 @@ detection challenge may have zero objects (i.e. background class). background cl
 localization and classification share data. detection has few more data points: images where the objects are smaller, images where
 certain objects are absent (can be used for background class)
 classification winner was clarifai ~11% (results in overfeat paper)
+localization winner was overfeat 29.9%
 
 ILSVRC 2012 and 2013 have the same train and test data? (mentioned in overfeat)
 
@@ -144,6 +145,31 @@ layer 7: 1 X 1 X 4096
 softmax: 1000 classes
 
 Accurate:
+ip layer: 221 X 221 X 3
+kernels: 7 X 7; stride 2
+max pool: 3 X 3; stride 3
+layer 1: 36 X 36 X 96
+kernels: 7 X 7; stride 1
+max pool: 2 X 2; stride 2
+layer 2: 15 X 15 X 256
+padding: 1 all around
+kernels: 3 X 3; stride 1
+layer 3: 15 X 15 X 512
+padding: 1 all around
+kernels: 3 X 3; stride 1
+layer 4: 15 X 15 X 512
+padding: 1 all around
+kernels: 3 X 3; stride 1
+layer 5: 15 X 15 X 1024
+padding: 1 all around
+kernels: 3 X 3; stride 1
+max pool: 3 X 3; stride 3
+layer 6: 5 X 5 X 1024
+FC:
+layer 7: 1 X 1 X 4096
+FC:
+layer 8: 1 X 1 X 4096
+op layer: 1000 way softmax
 
 Compared to Alexnet (60 million parameters), overfeat has ~ 2X more (~140 million parameters). 
 Applies to both the fast, accurate models.
@@ -172,7 +198,7 @@ layer 6: 1 X 1 X 4096
 FC: 
 layer 7: 1 X 1 X 1024
 FC:
-layer 8: 1 X 1 X 4 (coordinates) for each class; i.e. 1 X 1 X 4000
+layer 8: 1 X 1 X 4 (coordinates) ( if done per class: i.e. 1 X 1 X 4000 )
 
 Training:
 fix the feature extraction layers (up to layer 5). Train the regressor network using L2 loss on true coordinates. However, do 
@@ -185,3 +211,14 @@ merge candidates are chosen as those who have smallest distance from their cente
 distance exceeds a threshold, merging stops. The candidates are merged by averaging their corner coordinates.
 The class scores for the merged box is the sum of scores associated w/ input window corresponding to each bounding box that
 participates in the merge.
+per-class-regression (i.e. top layer per class) does worse than single-class-regression. likely due to lack of samples per class.
+
+Detection:
+not much detail. re-read.
+did not retrain on the validation set. validation set distribution is significantly different enough from training set that it 
+results in 1 pt better mAP.
+came in 3rd but post-competition were able to improve to 1st. 
+
+suggestions from paper:
+backpropagate through all layers for localization. use IOU loss for localization (feasible as long as there is some overlap).
+alternate parametrization of bounding box can decorrelate the output and result in better training. 
