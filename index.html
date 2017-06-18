@@ -17,11 +17,28 @@ ILSVRC 2010 - test set labels are available
 Preprocessing:
 
 
+Regularization:
+Data augmentation - adding noise, cropping, flipping, altering intensity of RGB images
+Alexnet style RGB intensity alteration - collect all RGB values (3D vector) from all training images. PCA to compute eigenvectors 
+and eigenvalues. Alter each training image by adding all three PCA directions scaled by their eigenvalue * N(0,0.1). Note: all 
+pixels in image use the same gaussian sample but different images use different ones.
+Dropout - reduces co-adaptation of features. increases the number of iterations needed to converge. e.g. w/ 0.5, alexnet needs
+roughly 2X iterations (note: alexnet runs dropout only on two FC layers but these layers have most of the parameters)
 
 Misc:
 LRN - local response normalization - post Relu; normalize the activation by L2 norm of activations from 
 neighboring kernels (n/2 on either side) raised to beta (hyperparameter). 
 This ties the activations together, e.g. two activations can't both be high
+
+Optimization:
+GD:
+SGD:
+Momentum:
+Nesterov Momentum:
+AdaGrad:
+RMSProp:
+Adam:
+
 
 conv layer: for 1 based indexing: op dimension = floor( 1 + (ip dimension - kernel dimension + padding) / stride )
 
@@ -53,6 +70,13 @@ layer 5: 13 X 13 X 384
 kernels: 3 X 3 ; stride
 layer 6: 13 X 13 X 256
 max pool: 3 X 3; stride 2
+dropout: 0.5
 layer 7: FC 4096
+dropout: 0.5
 layer 8: FC 4096
 op layer: softmax 1000
+Data augmentation - 2048 X increase in training set by cropping random 224x224 regions + their horizontal flips.
+10 X during testing by considering the four corners, center + their horizontal flips
+Learning: SGD, 0.9 momentum, mini-batch 128, 0.0005 weight decay
+weight decay is not just regularizing. it helps reduce training error as well.
+
