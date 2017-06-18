@@ -18,6 +18,12 @@ Preprocessing:
 
 
 
+Misc:
+LRN - local response normalization - post Relu; normalize the activation by L2 norm of activations from 
+neighboring kernels (n/2 on either side) raised to beta (hyperparameter). 
+This ties the activations together, e.g. two activations can't both be high
+
+conv layer: for 1 based indexing: op dimension = floor( 1 + (ip dimension - kernel dimension + padding) / stride )
 
 Title: ImageNet Classification with Deep Convolutional Neural Networks
 
@@ -28,4 +34,25 @@ ILSVRC 2010 & 2012
 5-6 days on 2 GTX580
 rescaled img such that shorter side of image is 256. central 256x256 cropped out
 subtracted the mean value, over training set, per pixel
-
+LRN - local response normalization - reduces error rates by ~1.2%
+Overlapping Pooling - makes it slightly harder to overfit
+Architecture:
+ip layer: 224 X 224 X 3
+kernels:  11 X 11 ; stride 4
+layer 2:  55 X 55 X 96
+LRN:
+max pool: 3 x 3; stride 2
+kernels:  5 X 5 ; stride 
+layer 3:  27 X 27 X 256
+LRN:
+max pool: 3 X 3; stride 2
+kernels: 3 X 3 ; stride
+layer 4: 13 X 13 X 384
+kernels: 3 X 3 ; stride 
+layer 5: 13 X 13 X 384
+kernels: 3 X 3 ; stride
+layer 6: 13 X 13 X 256
+max pool: 3 X 3; stride 2
+layer 7: FC 4096
+layer 8: FC 4096
+op layer: softmax 1000
