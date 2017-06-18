@@ -29,6 +29,8 @@ Misc:
 LRN - local response normalization - post Relu; normalize the activation by L2 norm of activations from 
 neighboring kernels (n/2 on either side) raised to beta (hyperparameter). 
 This ties the activations together, e.g. two activations can't both be high
+Image similarity can be determined by L2 norm on the last hidden layer's representation of image. E.g. when used on ILSVRC, this 
+retrieves similar images which in pixel-level-L2 would be far off.
 
 Optimization:
 GD:
@@ -77,6 +79,13 @@ layer 8: FC 4096
 op layer: softmax 1000
 Data augmentation - 2048 X increase in training set by cropping random 224x224 regions + their horizontal flips.
 10 X during testing by considering the four corners, center + their horizontal flips
-Learning: SGD, 0.9 momentum, mini-batch 128, 0.0005 weight decay
+Learning: SGD, 0.9 momentum, mini-batch 128, 0.0005 weight decay. learning rate set to 0.01 and reduced 10X manually based on 
+validation error. during training it went through 3 reductions. 
 weight decay is not just regularizing. it helps reduce training error as well.
+Initialization: weights are N(0,0.01). biases in layers 3, 5, 6 are set to 1; remaining are set to 0.
+Training consumed 90 cycles of the entire training set (1.2 million images)
 
+Results:
+ILSVRC 2010: top 1: 37.5%; top 5: 17.0%; top 5 w/o avg-ing over 10 patches: 18.3%
+ILSVRC 2012: top 5: 18.2%; 5 CNN avg top 5: 16.4%
+Removing any of the conv layers results in 2% loss on top 1 performance.
