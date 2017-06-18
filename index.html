@@ -14,6 +14,11 @@ Imagenet - 15 million labeled images / 22000 categories
 ILSVRC - 1.2 million labeled images, 50000 validation, 150000 testing. ~1000 images in each of 1000 categories
 ILSVRC 2010 - test set labels are available
 
+ILSVRC 2013 - localization considered correct only if > 50% overlap (intersection-over-union)
+detection challenge may have zero objects (i.e. background class). background class makes detection harder.
+localization and classification share data. detection has few more data points: images where the objects are smaller, images where
+certain objects are absent (can be used for background class)
+
 Preprocessing:
 
 
@@ -55,15 +60,17 @@ rescaled img such that shorter side of image is 256. central 256x256 cropped out
 subtracted the mean value, over training set, per pixel
 LRN - local response normalization - reduces error rates by ~1.2%
 Overlapping Pooling - makes it slightly harder to overfit
+
 Architecture:
+Relu activations throughout
 ip layer: 224 X 224 X 3
 kernels:  11 X 11 ; stride 4
 layer 2:  55 X 55 X 96
-LRN:
+LRN: neighborhood 5, beta 0.75, alpha, k
 max pool: 3 x 3; stride 2
 kernels:  5 X 5 ; stride 
 layer 3:  27 X 27 X 256
-LRN:
+LRN: same as above
 max pool: 3 X 3; stride 2
 kernels: 3 X 3 ; stride
 layer 4: 13 X 13 X 384
@@ -89,3 +96,45 @@ Results:
 ILSVRC 2010: top 1: 37.5%; top 5: 17.0%; top 5 w/o avg-ing over 10 patches: 18.3%
 ILSVRC 2012: top 5: 18.2%; 5 CNN avg top 5: 16.4%
 Removing any of the conv layers results in 2% loss on top 1 performance.
+
+OverFeat:
+single convnet for classification, localization and detection.
+avoid training on background class.
+ILSVRC 2012 and 2013. Winner of 2013 localization.
+
+Training:
+Trained on ILSVRC 2012 (1.2 million images)
+Image is rescaled so the smaller dimension is of 256 pixels. 
+Extract 5 random crops (221 X 221) and feed them + their horizontal flips in mini-batches of 128.
+weights initialized to N(0,0.01)
+SGD with momentum 0.6, weight decay 0.00001
+Learning rate: 0.05 and reduced 2X at (30, 50, 60, 70, 80) epochs
+
+Architecture:
+Training treats architecture as non-spatial (i.e. 1x1 output) but inference treats it as spatial.
+Relu activations throughout
+(typo in their paper on the first two layers of the fast model?)
+Fast model:
+ip layer: 221 X 221 X 3
+kernels: 11 X 11; stride 4
+max pool: 2 X 2; stride 2
+layer 1: 28 X 28 X 96
+kernels: 5 X 5; stride 1
+max pool: 2 X 2; stride 2
+layer 2: 12 X 12 X 256
+padding: 1 all around
+kernels: 3 X 3; stride 1
+layer 3: 12 X 12 X 512
+padding: 1 all around
+kernels: 3 X 3; stride 1
+layer 4: 12 X 12 X 1024
+padding: 1 all around
+kernels: 3 X 3; stride 1
+max pool: 2 X 2; stride 2
+layer 5: 6 X 6 X 1024
+FC:
+layer 6: 1 X 1 X 3072
+FC:
+layer 7: 1 X 1 X 4096
+softmax: 1000 classes
+
