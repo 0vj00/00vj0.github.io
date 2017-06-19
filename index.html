@@ -222,3 +222,75 @@ came in 3rd but post-competition were able to improve to 1st.
 suggestions from paper:
 backpropagate through all layers for localization. use IOU loss for localization (feasible as long as there is some overlap).
 alternate parametrization of bounding box can decorrelate the output and result in better training. 
+
+
+VGG - Very Deep Convolutional Networks for Large Scale Image Recognition
+
+ILSVRC 2014: second in classification; first in localization
+
+input is 224 X 224 pixels. 
+per pixel mean value, across training set, is subtracted from each pixel
+all convolutions as 'same' convolutions; i.e. padding of 1 all around for 3 X 3 kernels
+LRN (alexnet) does not improve performance on ILSVRC; leads to increased computation and memory
+
+Architecture:
+Model E:
+ip layer: 224 X 224 X 3
+padding: 1 all around
+kernels: 3 X 3; stride 1
+layer 1: 224 X 224 X 64
+layer 2: same as previous layer
+max pool: 2 X 2; stride 2
+padding: 1 all around
+kernels: 3 X 3; stride 1
+layer 3: 112 X 112 X 128
+layer 4: same as previous layer
+max pool: 2 X 2; stride 2
+layer 5: 56 X 56 X 256
+layer 6: same as previous layer
+layer 7: same as previous layer
+layer 8: same as previous layer
+max pool: 2 X 2; stride 2
+layer 9: 28 X 28 X 512
+layer 10: same as previous layer
+layer 11: same as previous layer
+layer 12: same as previous layer
+max pool: 2 X 2; stride 2
+layer 13: 14 X 14 X 512
+layer 14: same as previous layer
+layer 15: same as previous layer
+layer 16: same as previous layer
+max pool: 2 X 2; stride 2
+FC:
+layer 17: 1 X 1 X 4096
+Dropout: 0.5
+FC:
+layer 18: 1 X 1 X 4096
+Dropout: 0.5
+FC:
+layer 19: 1000 way softmax
+
+total number of parameters is similar to OverFeat (~144 million)
+
+with 3 X 3 kernels; three layers will reach an effective receptive field of 7 X 7 but will have fewer params than a single 
+7 X 7 kernel. Also, it has three non-linearities vs. one.
+
+Training:
+mini-batch size of 256, momentum of 0.9, weight decay of 0.0005, learning rate initialized to 0.01 and dropped by 10X based 
+on validation performance. 74 epochs were run.
+despite larger number of parameters (v. Alexnet), it took fewer epochs to converge due to regularization imposed by use of 3 X 3
+kernels instead of 11 X 11 etc and due to pre-initialization of certain layers.
+
+Random crops were chosen from rescaled training images. At random, they were horizontally flipped and RGB shift (Alexnet) was 
+carried out.
+
+
+Initialization:
+weights ~ N(0, 0.01)
+first trained smaller model (A). then reused the layers from A to initialize layers in bigger model. The copied-over layers had
+the same learning rate as other layers and hence were allowed to adapt. biases were set to 0 (why?). they later felt Glorot 
+initialization would have been equally effective.
+
+
+
+
