@@ -284,6 +284,10 @@ kernels instead of 11 X 11 etc and due to pre-initialization of certain layers.
 Random crops were chosen from rescaled training images. At random, they were horizontally flipped and RGB shift (Alexnet) was 
 carried out.
 
+Fixed scale training at 256 and 384: Image is scaled such that smallest side is 256 pixels. Random crops are chosen and modifications made prior to training. Once trained; weights 
+are copied over for training with smallest side set to 384 pixels. While training for 384, learning rate is decreased to 0.001
+Multi scale training: Image is scaled such that smallest side is a random value between 256 and 512. First the network is 
+trained for fixed scale of 384 pixels. Then all layers are fine tuned to adapt to the multi scale setting.
 
 Initialization:
 weights ~ N(0, 0.01)
@@ -292,5 +296,20 @@ the same learning rate as other layers and hence were allowed to adapt. biases w
 initialization would have been equally effective.
 
 
+Test/Inference:
+Image is rescaled so the smallest side is of certain dmension. Network is applied over the entire image resulting in a 
+class score map of variable size. this is spatially averaged to get per class scores. similarly, the flipped image is evaluated
+and class scores are avged between original and flipped versions.
 
+Training done on 4 Nvidia Titan Black GPUs w/ speedup of 3.75. Data parallelism was achieved by each GPU computing over a 
+a fraction of the mini-batch samples. The gradients computed by each GPU is averaged to obtain the full batch gradient. This is
+done in a synchronous manner so the computations are the same as if training occured on one GPU.
+Training a single net takes 2-3 weeks
+
+Results:
+error rate decreases with increasing depth, saturates at 19 layers. 
+replacing pairs of 3 X 3 convolutions by a single 5 X 5 convolution layer results in 7% higher error rate.
+scale jittering (i.e. randomly choosing a scale value between 256 and 512 and resizing to have the smaller side match that) 
+leads to better performance than training on fixed scale value.
+Model E with scale jittering achieves 8% top 5 error for single scale evaluation.
 
