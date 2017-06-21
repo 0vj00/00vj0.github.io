@@ -14,7 +14,8 @@ Imagenet - 15 million labeled images / 22000 categories
 ILSVRC - 1.2 million labeled images, 50000 validation, 150000 testing. ~1000 images in each of 1000 categories
 ILSVRC 2010 - test set labels are available
 
-ILSVRC 2013 - localization considered correct only if > 50% overlap (intersection-over-union)
+ILSVRC 2013 - localization considered correct only if > 50% overlap (intersection-over-union). For localization, a single box is
+predicted for the predicted class.
 detection challenge may have zero objects (i.e. background class). background class makes detection harder.
 localization and classification share data. detection has few more data points: images where the objects are smaller, images where
 certain objects are absent (can be used for background class)
@@ -320,4 +321,7 @@ over wider variations in size since the training jitter is of wide variation.
 perform comparably to the classification task winner (GoogLeNet) with delta of only 0.1%. GoogLeNet being 6.7% top 5 error.
 
 Localization:
-
+Won the localization challenge. Similar to OverFeat, can run either single-class-regression or per-class-regression. L2 loss is 
+used in the regression layer.
+Training done for fixed scales. Was initialized to the classification network trained for the same scale. Initial learning rate 
+was 0.001. Explored fine-tuning all layers or only the fully connected layers.
