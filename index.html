@@ -313,3 +313,11 @@ scale jittering (i.e. randomly choosing a scale value between 256 and 512 and re
 leads to better performance than training on fixed scale value.
 Model E with scale jittering achieves 8% top 5 error for single scale evaluation.
 
+Multi-scale evaluation - run inference on several rescaled versions of image and average the resulting class probabilities. 
+models trained with fixed size are evaluated with size around the fixed size. model trained with scale jittering are evaluated 
+over wider variations in size since the training jitter is of wide variation.
+
+perform comparably to the classification task winner (GoogLeNet) with delta of only 0.1%. GoogLeNet being 6.7% top 5 error.
+
+Localization:
+
