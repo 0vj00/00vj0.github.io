@@ -24,6 +24,15 @@ localization winner was overfeat 29.9%
 
 ILSVRC 2012 and 2013 have the same train and test data? (mentioned in overfeat)
 
+PASCAL VOC 2007 - ~10K images for classification task; 20 object categories; mAP metric is used
+PASCAL VOC 2012 - ~22K images for classification task; 20 object categories; mAP metric is used
+Caltech 101 - 9K images in 102 categories (101 + a background class)
+Caltech 256 - 31K images in 257 categories
+PASCAL VOC 2012 Action classification - predict action given a bounding box around a person performing an action. 4.6K images and 11 classes. mAP metric is used.
+
+The way caltech dataset is typically evaluated: Generate random train/test splits and report average performance across them. Mean class recall is used since it compensates for different number of test images per class.
+
+
 Preprocessing:
 
 
@@ -325,3 +334,76 @@ Won the localization challenge. Similar to OverFeat, can run either single-class
 used in the regression layer.
 Training done for fixed scales. Was initialized to the classification network trained for the same scale. Initial learning rate 
 was 0.001. Explored fine-tuning all layers or only the fully connected layers.
+
+
+Testing (Localization):
+Dense application of the localization convent to produce class probabilities and bounding box proposals. Boxes were merged as in OverFeat. When multiple convnets are run, merging is done over the union of box proposals from the various convnets. Did not use the multiple pooling offsets technique of OverFeat which gives finer granularity.
+
+Results:
+Per class regression does ~2% better (i.e. error rate). Full fine-tuning does ~1% better than fine-tuning of the fully connected layers alone.
+Applying the convnet densely over the whole image improves error by ~6%. Testing at multiple scales and combining predictions of multiple convnets is beneficial.
+Results are better than OverFeat by ~5% despite not using as many scales and not running multiple pooling offsets. Thus, we can expect the improvement to have been due to use of better representations by means of deeper net.
+
+Use as feature extractor:
+Penultimate layer’s output is treated as image feature. Features are aggregated across locations and scales as follows: Similar to the classification task’s inference, the image is scaled so the smaller side is of certain dimension. The convent is then densely applied to get a 4096 channel spatial map (from the penultimate layer). This is averaged spatially to get a 4096 dimension descriptor. This descriptor is averaged with the descriptor for the horizontally flipped image. Similar descriptors are obtained for multiple scales and either stacked or pooled.
+For running classification on other datasets (e.g. PASCAL VOC), the descriptor is L2 normalized and a linear SVM is trained (note: the weights of the convent remain unchanged). 
+For PASCAL VOC, didn’t see any difference in stacking descriptors vs. averaging them across scales.
+Achieves ~6% better performance on PASCAL VOC compared against others.
+
+For caltech datasets, 3 random test / train splits were used. For each split, the number of images per class was controlled (e.g. for caltech 101, training set had 30 images per class while test set had 50 images per class). For caltech case, stacking the descriptors from different scales was better than pooling. Outperforms state of art by ~8%
+
+On PASCAL VOC 2012 Action classification task; during training (of SVM), features are obtained in two ways - a) descriptor taken over entire image (ignoring the bounding box) b) descriptor taken over bounding box is stacked with the descriptor taken over entire image. Beats state of art by ~8%
+
+VGG has been used in other areas as well - object detection, semantic segmentation, caption generation, texture and material recognition
+
+
+————————————————————————————————
+auto-encoding variational bayes
+
+See fig. 1 for the directed model discussed in the paper. 
+
+There is a continuous latent variable z and an observed variable x. We want to do ML estimation of parameters. 
+Assumption is that marginalizing P(x,z; theta) over z is intractable. Also, computing P(z / x; theta) is intractable (so EM algorithm doesn’t work). Integrals for any reasonable mean-field variational bayes algorithm are also intractable ???
+
+provides solution to: a) estimating theta b) computing posterior P( z / x; theta ) c) efficient approximate marginal inference of x ??? ( i guess they mean generating x? )
+
+Introduce an approximation to the true posterior P( z | x; theta) as Q( z | x; phi). terminology: Q( z | x; phi) is referred to as encoder (z is thought of as a code). P(x | z; theta) is referred to as a decoder.
+
+————————
+Andrew Ng Class notes
+EM algorithm
+
+Typically for ML estimation, we simply calculate the log likelihood (log P(x; theta)) summed over the independent samples (x1, x2, …) and optimize for theta. 
+In case the model is affected by a latent variable, we will need to marginalize over the latent in order to estimate P(x; theta) and this may be intractable.
+
+EM algorithm is applicable in this case. The strategy will be to construct a lower bound (E step) and tighten the bound (M step)
+
+For each sample i, consider that the latent variable obeys a distribution Q_i(z)
+log likelihood = sum( log P(x_i; theta) ) >= sum( Expectation_over_Q_i(z)[ log P(x_i, z; theta) / Q_i(z) ] )
+for the jensen’s inequality to be tight, we need Q_i(z) proportional to P(x_i, z; theta) for all z; i.e. we need Q_i(z) to be P(z / x_i; theta).
+Therefore; log likelihood = sum_over_i( sum_over_z( P(z / x_i; theta) log( P(x_i, z; theta) / P(z / x_i; theta) )))
+
+Then to maximize the log likelihood, we optimize over theta. 
+In EM algorithm, however, we run two steps
+
+E-Step: Compute Q_i(z) = P(z / x_i; theta_1)
+M-Step: Optimize theta_2 = argmax sum_over_i( sum_over_z ( Q_i(z) log( P(x_i, z; theta) / Q_i(z) )))
+Iterate till convergence
+
+Note: in the M-step, Q_i is based on theta_1 - i.e. it is held based on previous value of theta
+Note 2: in the M-step, it may look like you are minimizing the KL divergence between Q_i(z) and P(x_i, z; theta)… but notice that with regard to z, P(x_i, z; theta) is not a probability distribution!
+Note 3: so, instead of performing marginalization over z; we need to be able to compute P(z / x_i; theta)
+
+elaborating on note 3: why does this matter practically speaking? consider ML estimation for mixture of Gaussian modeling. if you go with the marginalization approach, you will have weighted sum of  Gaussians inside the log - this prevents the exponential from getting cancelled out. Further, when you differentiate w.r.t the mean of the gaussian, you will have a ratio of exponentials as the derivative term and this prevents you from getting to a closed form solution. On the other hand, in the EM algorithm, in the M-step, we treat Q as some constant (having computed it in the E-step). thus the M-step is just like ML estimation where the latent variables are known. In the mixture of Gaussians case, it results in a closed form answer.
+
+
+Why will the EM algorithm converge?
+log likelihood with theta_2 >= sum_over_i( sum_over_z ( Q_i(z; theta_1) log( P(x_i, z; theta_2) / Q_i(z; theta_1) ) )) >= sum_over_i( sum_over_z( Q_i(z; theta_1) log( P(x_i, z; theta_1) / Q_i(z; theta_1) ))) = log likelihood with theta_1 (due to the way Q_i is chosen)
+
+so, with each iteration, you are guaranteed to not get worse; and you are upper bounded by 0
+
+further investigation: look into monte carlo EM (this is when monte carlo methods are applied in the E-step for computing Q(.) due to intractability)
+
+——————————————
+
+Fitting mixture of gaussians is an unsupervised problem?
