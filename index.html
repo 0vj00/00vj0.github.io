@@ -407,3 +407,22 @@ further investigation: look into monte carlo EM (this is when monte carlo method
 ——————————————
 
 Fitting mixture of gaussians is an unsupervised problem?
+
+----------------
+Variational methods: Mean field approximation
+
+Consider latent random variable z and visible random variable x. How do we compute the posterior P( z | x_i) or any function of it?
+In variational inference, we use an approximating distribution Q( z | x_i; phi) to model the true posterior. This approximating
+distribution is usually a simple one like a Gaussian.
+(From mackay): The objective to be optimized is the variational free energy, given by :
+ E_over_Q(z|x_i; phi)( log( Q(z|x_i; phi) / P( z, x_i; theta ) ) )
+equivalently, this is
+ E_over_Q(z|x_i; phi)( log( Q(z|x_i; phi) / P( z|x_i; theta ) ) ) - E_over_Q(z|x_i; phi)( log P(x_i; theta) )
+= KL( Q(z|x_i; phi) || P( z|x_i; theta ) ) - log P(x_i; theta)
+Note that the first term is the KL divergence which can be made zero by making Q(z|x_i; phi) converge to the true posterior.
+Thus we have the following variational lower bound on the log likelihood
+log P(x_i; theta) = KL( Q(z|x_i; phi) || P( z|x_i; theta ) ) - E_over_Q(z|x_i; phi)( log( Q(z|x_i; phi)/ P(z, x_i; theta) ) )
+>= - E_over_Q(z|x_i; phi)( log( Q(z|x_i; phi)/ P(z, x_i; theta) ) ) (negative variational free energy)
+
+Note: the assumption is that it is difficult to compute/evaluate the true posterior P( z | x_i; theta ). it is possible to compute P(x | z_i; theta ), 
+P(z; theta)
