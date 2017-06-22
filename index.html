@@ -422,7 +422,18 @@ equivalently, this is
 Note that the first term is the KL divergence which can be made zero by making Q(z|x_i; phi) converge to the true posterior.
 Thus we have the following variational lower bound on the log likelihood
 log P(x_i; theta) = KL( Q(z|x_i; phi) || P( z|x_i; theta ) ) - E_over_Q(z|x_i; phi)( log( Q(z|x_i; phi)/ P(z, x_i; theta) ) )
->= - E_over_Q(z|x_i; phi)( log( Q(z|x_i; phi)/ P(z, x_i; theta) ) ) (negative variational free energy)
+>= - E_over_Q(z|x_i; phi)( log( Q(z|x_i; phi)/ P(z, x_i; theta) ) ) (negative variational free energy / variational lower bound)
 
-Note: the assumption is that it is difficult to compute/evaluate the true posterior P( z | x_i; theta ). it is possible to compute P(x | z_i; theta ), 
-P(z; theta)
+the variational bound can also be written in terms of P(z; theta) and P(x_i | z; theta) as 
+KL( Q(z | x_i; phi) || P(z; theta) ) + E_over_Q(z | x_i; phi)( log(P(x_i | z; theta) ) - Here we use P(z) instead of P(x_i|z) in the 
+KL divergence since P(x_i|z) is not a probability distribution over z.
+The second term is called the expected reconstruction error. Why is this re-write of the bound useful? In some cases, we may be 
+able to compute the first term analytically. Then sampling is necessary only for the expected reconstruction. The first term
+can be interpreted as a regularizing effect, trying to keep the approximating distribution close to the prior on z.
+
+So, the idea is to minimize the free energy
+Note: the assumption is that it is difficult to compute/evaluate the true posterior P( z | x_i; theta ). 
+However, it is possible to compute P(x_i | z; theta ), P(z; theta)
+
+Now, we want to do gradient ascent to increase the value of the bound by modifying the variational parameters phi and the generative
+parameters theta.
