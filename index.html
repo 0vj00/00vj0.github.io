@@ -500,6 +500,72 @@ layers of the generative MLP will transform the distribution from unit Gaussian 
 Results:
 MNIST VAE - run in Caffe using Relu and ADAM. For the generated image, each pixel is binarized and probability of being on is modeled with a sigmoid. performance is poor if z (latent) has very few dimensions (e.g. 4) or very large dimensions (e.g. 10000)
 MNIST CVAE - conditioning is done on the middle column of pixels. Tried to show example where half the digit is provided and the CVAE completes the remaining half. This works, however a simple regression model also does this well. Likely this is due to lack of multi modal uncertainty given half the digit and/or due to overfitting.
+------------------
+Visualizing and Understanding Convolutional Networks
+
+They show that transfer learning achieves new records on Caltech-101 and Caltech-256. The softmax layer alone is retrained.
+
+Deconvnet is applied to generate the image corresponding to a particular activation. A layer is chosen and all but one neuron’s output is zero’ed out. The activations are then passed through the deconvnet.
+Unpooling: While pooling, we note down the neurons which had the max value and had their activations transferred forward. For unpooling, this mapping is reversed. The ambiguity with this approach is that the non-max neurons’ values are unknown - just that they are less than the max’s.
+
+Rectification: This is inverted by passing through relu again. Note that the activation values are non-negative. Thus, passing through relu to invert is reasonable.
+
+Filtering: This is inverted by applying transposed versions of the filters - i.e the filters are flipped vertically and horizontally. Think of the neurons in the filtered layer being connected to the layer beneath. Filtering with the flipped filter is equivalent to sending the signal back through the same weighted connections.
+
+
+Architecture:
+relu activations throughout
+ip layer: 224 X 224 X 3
+kernels: 7 X 7; stride 2
+intermediate layer: 110 X 110 X 96
+max pool: 3 X 3; stride 2
+contrast normalization across feature maps
+layer 1: 55 X 55 X 96
+kernels: 5 X 5; stride 2
+intermediate layer: 26 X 26 X 256
+max pool: 3 X 3; stride 2
+contrast normalization across feature maps
+layer 2: 13 X 13 X 256
+kernels: 3 X 3; stride 1
+layer 3: 13 X 13 X 384
+kernels: 3 X 3; stride 1
+layer 4: 13 X 13 X 384
+kernels: 3 X 3; stride 1
+intermediate layer: 13 X 13 X 256
+max pool: 3 X 3; stride 2
+layer 5: 6 X 6 X 256
+FC:
+layer 6: 4096
+FC:
+layer 7: 4096
+FC: 
+output layer: softmax over classes
+
+
+Training:
+Model was trained on ILSVRC 2012. Each image was rescaled so the smallest side is 256. center 256 X 256 is cropped. This is done for all images and the per pixel mean is subtracted. 10 224 X 224 crops are taken like in Alexnet (center, corners and flips). Mini batch size is 128, learning rate of 0.01
+Momentum of 0.9. Learning rate is reduced manually by monitoring the validation error. Dropout is used in the fully connected layers w/ probability 0.5. Weights are initialized to 0.01 (note: not random??) and biases to 0. Trained for 70 epochs - took 12 days on GTX580.
+They notice that in the first layer, some of the kernels dominate. These are normalized to have RMS (take root of the mean of the squared values) value clipped to 0.1 if it exceeds this.
+
+Visualization:
+For each layer, they look at the top 9 activations from a random subset of the feature maps. They deconv this back to image space and show the corresponding images. They also show the image patches corresponding to these top 9 activations. 
+Note that since the deconvolution needs to remember the max switches, it can vary depending on the
+image used as input.
+By deconving from different layers over time, we see that the upper layers need 40-50 epochs to develop
+Under image transformations such as translation, scaling and rotation, the lower layers are highly sensitive but sensitivity reduces as we go up the convnet. This is studied using the L2 loss between the feature maps of the modified image and the feature maps of the original image. The network is more sensitive to rotation than translation or scaling.
+Alexnet visualizations show aliasing in layer 2 due to the large stride (4).
+
+Results:
+Removing the FC layers in alexnet results in ~4% higher error. Removing the top FC layer results in almost the same performance. Removing layers 3 and 4 also results in ~4% higher error.
+Increasing the number of feature maps in the intermediate layers improves performance slightly (for their net, not done on Alexnet). In addition, if they double the number of neurons in the FC layers, they see overfitting.
+To evaluate transfer learning, the top softmax layer is replaced and retrained. A linear SVM could be used instead. 
+Some of the images overlap between ILSVRC 2012 and Caltech datasets. These were detected through normalized correlation and removed from ILSVRC during training of the convnet in order to avoid train/test contamination.
+For caltech-101, picked 30 images per class for training (at random) and 50 images per class for testing. 5 train/test folds were used. per-class accuracies were reported. See reference for details.
+Pre-training the convnet on ILSVRC, then applying on Caltech beats best reported result by 2% but starting with an untrained convnet does terribly (roughly half the accuracy)
+For caltech-256, picked {15, 30, 45, 60} for training. Similar to caltech-101, pretrained beats the best while starting with untrained performs terribly. the pretrained model needs only 6 images per class to match leading methods using 60 images per class.
+For PASCAL 2012, performance is close but doesn’t beat the best. PASCAL images contain multiple objects and may be of full scenes unlike ILSVRC images.
+On caltech datasets, they experiment with retaining only the first x layers (adding a SVM or softmax on top) and see that depth provides advantage.
+
 
 —————
 How is the mini batch gradient computation implemented? is it that after forward prop, the gradients at the top are initialized (e.g. gradient of softmax w.r.t the logics) and back prop is done from that point on?
