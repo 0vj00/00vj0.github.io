@@ -9,6 +9,8 @@ Datasets:
 NORB
 Caltech 101 / 256
 CIFAR 10 / 100
+CIFAR 10 - 50K training images, 10K testing images over 10 classes
+
 MNIST
 Imagenet - 15 million labeled images / 22000 categories
 ILSVRC - 1.2 million labeled images, 50000 validation, 150000 testing. ~1000 images in each of 1000 categories
@@ -566,7 +568,72 @@ For caltech-256, picked {15, 30, 45, 60} for training. Similar to caltech-101, p
 For PASCAL 2012, performance is close but doesn’t beat the best. PASCAL images contain multiple objects and may be of full scenes unlike ILSVRC images.
 On caltech datasets, they experiment with retaining only the first x layers (adding a SVM or softmax on top) and see that depth provides advantage.
 
+----------------------------------------
+GoogLeNet
 
+Driving motivations were to keep computational costs low while reaching higher depth and width. Uses 12X fewer parameters than Alexnet.
+Won the ILSVRC 2014 classification challenge.
+Budget target for inference time was 1.5 billion multiply adds.
+Draws on ideas from ‘Network in Network’ paper.
+Main issues with larger network are two fold: more labeled data necessary to train such (i.e. avoiding overfitting) and increased computation.
+Inspired by Arora’s results (see reference) they claim a way to overcome these issues is to build a large network that has sparse connectivity. Arora’s result says that neurons that are highly correlated can be clustered (merged??). However, practically speaking, computation machinery is not as optimized for sparse computations as for dense ones like dense matrix multiplication. So, the inception architecture came out of a study into how the sparsity principles can be applied using dense computations. 
+
+So, how can dense components be used to create local sparse structure for convolutional vision networks. < need to read through the references on network-in-network paper and the one by Arora to understand further >
+
+Inception module: We’re not sure what convolution to run on a layer, so we run three types: 1x1, 3x3 and 5x5. Additionally, we also run 3x3 maxpooling. The next layer is simply a concatenation of these four types of feature maps. Note that the convolution layers are followed by relu.
+
+Inception module w/ dimensionality reduction: In order to reduce the number of operations, we place 1x1 convolution layers (+relu) prior to the 3x3 and 5x5 layers in the Inception module. 1x1 conv layers (+relu) are also placed after the 3x3 maxpooling in order to reduce the number of feature maps.
+
+An inception network is a stack of Inception modules. For memory reasons, the lower layers are kept as traditionally conv or pool layers. This is ok since anyway the lower layers only learn simple features. 
+
+Architecture: See table 1
+
+Input is 224 X 224 X 3 with per pixel mean subtraction.
+Dropout 0.4 is applied in the fully connected layer.
+In order to train the deep network (22 layers); auxiliary classification heads (avg pooling + conv + FC + softmax) were attached to 4a and 4d inception modules. The loss from these auxiliary heads was added to the main loss with a scaling of 0.3. Later experiments showed that you only needed one of the auxiliary heads and that too didn’t result in much of an improvement (less than 1%).
+
+Training was done on distbelief framework with asynchronous SGD having momentum 0.9, fixed learning rate schedule (decrease by 4% every 8 epochs). Polyak averaging was used to create the final model.
+For training, it is suggested to use various scales such that the area ranges from 8 to 100% of the original image area. Aspect ratio is suggested to be kept in the interval [3/4, 4/3]. Photometric distortions help reduce overfitting.
+
+Testing used 7 independent models. 144 crops were taken per image: the image was rescaled so that the shorter side is of length {256, 288, 320, 352}. Then left, center, right (or top, center, bottom depending on which side is shorter) squares were extracted. From each square the four corner and center 224 x 224 crop is extracted. Also the square is resized to 224 x 224. Horizontal flips of the crops and resize are also used. 
+The softmax output computed for each crop for each model is averaged over all models and crops.
+1.5-2% better performance by using multiple crops. 1-2% better performance by using multiple models.
+
+For the detection task, region proposals are done by combining selective search and multibox. 6 GoogLeNet models are used to identify the class in each region. Bounding box regression is not done. Despite this they rank 1st in detection
+Since a good portion of localization dataset bounding boxes are not included in the detection dataset, the localization data may be used to pretrain the network’s bounding box regressor just like classification dataset is used to pretrain the classifier. GoogLeNet did not do this though.
+—————————————————
+Some improvements on deep convolutional neural network based image classification
+
+———————
+Deep Residual learning for Image recognition
+
+If we increase the depth of typical convnets, we run into exploding/vanishing gradients problem and this has been addressed to a large extent by normalized initialization (like Glorot initialization) and by introducing batch normalization. Despite this a degradation problem arises wherein beyond a point, adding more layers makes training performance worse. 
+Residual networks make use of layers that try to fit a residual mapping ( H(x) - x ) rather than the desired mapping H(x). 
+
+Won ILSVRC 2015 classification, localization and detection. 
+
+The resnet building block has at least two conv layers. The Relu after the second conv layer is performed only after adding x. If the building block only had one conv layer, it would be like a traditional conv layer with some of the weights fixed at 1. They do not observe any advantages in such case. If necessary, the shortcut connection can have a weight matrix multiplication (after flattening) in order to change the number of feature maps to match the output of the residual path (e.g. x is only 3 channels but the residual path outputs 10 feature maps). The addition of the residual and x is done per feature map.
+
+The baseline convnet is inspired by VGGnet. Unlike VGG, it quickly reduces in resolution through use of a stride 2 convolution. For the remaining layers, it adds many more convolution layers at each resolution thereby bringing the total layers to 34.
+The Resnet is obtained by adding skip connections to the 34 layer baseline convnet. A skip connection jumps over two convolution layers. At points where the skip connection goes from one resolution to another, the number of feature maps has doubled. To deal with the resolution decrease, either a) zero padding is used (i.e. the new feature maps are zero) or b) 1X1 convolution is performed on x. To match resolution, stride 2 is used.
+
+Image is rescaled so the shorter side is in the interval [256, 480]. A random 224x224 crop is extracted from the rescaled image or its horizontal flip and per pixel mean (over training images) is subtracted. Color augmentation like in Alexnet (using PCA) is applied. Batch normalization is performed between convolution and activation throughout the network. Mini batch size 256, SGD with momentum 0.9 is applied. Learning rate is 0.1 with 10X reduction when the validation plateaus. weight decay is 0.0001. Dropout is not used since batch norm suffices. Trained for roughly 60x10e4 iterations (128 epochs). 
+For testing, the network is densely applied and results averaged after rescaling so the shorter side is {224, 256, 384, 480, 640}.
+
+For plain nets, degradation is observed despite use of batch normalization. i.e. 34 deep network has worse training error than 18 deep network. Resnets do not exhibit this issue. For the 18 deep network, it is observed that the resnet converges faster than plain net despite both achieving similar performance. Thus the shortcut connections help SGD. Performing 1x1 convolutions on the shortcut connections is better than zero padding as expected (since zero padding means those feature maps cannot do residual learning)
+
+Bottlenecked building block: To ease computation, a bottlenecked design can be considered where instead of two 3x3 convolutions, we have three convolutions 1x1, 3x3 and 1x1 (the relu on the last one is applied only after adding in the short circuit connection - just like in the non-bottlenecked building block). the first 1x1 reduces the number of feature maps and the last 1x1 restores it back.
+Having 1x1 convolutions on the short circuit path will dampen the benefit of bottlenecked building blocks due to the short circuit connecting high feature map points. Thus their use is to be minimized.
+
+Object Detection: Faster R-CNN is used with ResNet-101 replacing VGG-16. Network is first trained on classification dataset, then fine tuned on detection dataset. Remaining TBD - needs background on R-CNN.
+
+CIFAR 10 experiments: 32 x 32 images with per pixel mean subtracted are used. TBD
+
+Note that there are no max pooling layers!
+
+—————————————————————————————
+Polyak averaging:
+average the parameters over past time steps; i.e. = (1/T) * sum_i_0toT parameter( i )
 —————
 How is the mini batch gradient computation implemented? is it that after forward prop, the gradients at the top are initialized (e.g. gradient of softmax w.r.t the logics) and back prop is done from that point on?
 
