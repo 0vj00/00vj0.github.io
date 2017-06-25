@@ -631,6 +631,18 @@ CIFAR 10 experiments: 32 x 32 images with per pixel mean subtracted are used. TB
 
 Note that there are no max pooling layers!
 
+---------------------------------
+Some improvements on Deep Convolutional Neural Network based Image Classification
+
+In Alexnet, the image is rescaled so the smaller side is of length 256. Then the central 256x256 area is cropped out and 224x224 crops taken from it. This paper suggest to take random 224x224 crops from the full rescaled image of size 256XN (or NX256).
+Python image library is used to modify brightness, contrast and color in the range of [0.5, 1.5]. After this, Alexnet style color modification (i.e. PCA) is done.
+For testing, first three views are generated. Image is scaled such that the smaller side is 256. Three views are chosen (left, center, right or top, center, bottom). For each of these 256x256 images, three scales are generated (256, 228, 284 - bicubic interpolation is used for both up and down-scaling) and 5 crops taken from it (like Alexnet). Horizontal flips are also applied. This gives 90 predictions, which may be prohibitively large for real time use. 
+
+Higher resolution model: if the crops are taken from the image scaled to a very different value, the convnet needs to be 
+retrained for that new scale. Consider rescaling the image so the smaller side is 448. 224x224 crops are taken from this 
+for training. In practice, instead what is done is that 128x128 patches are taken from the smaller-side-256 scaled images. 
+128 is used since it is half of 256 (just like 224 is half of 448). The 128x128 patch is upscaled to 224x224 and used to train the convnet. The convnet is initialized to the lower resolution convnet and fine-tuning is done covering all layers. This completes in 30 epochs compared to the 90 needed for the low resolution case.
+
 —————————————————————————————
 Polyak averaging:
 average the parameters over past time steps; i.e. = (1/T) * sum_i_0toT parameter( i )
