@@ -663,10 +663,129 @@ Bounding box regression fixes a large number of mislocalization errors.
 
 For semantic segmentation, CPMC (constrained parametric min-cuts) algorithm is applied to extract region proposals. Smallest enclosing window is extracted and warped to 227x227 pixels. Three strategies are tried: window is input as is, window is used with the non-selected pixels set to corresponding means ( so that they becomes zeroed out when passed into the CNN ); a concatenation of the features from the two approaches. The features are fed into SVR for regression (following the framework of O2P).
 
+----------------------------
+SPPNet
+
+The approach to running CNNs on regions of an image are to warp the image after cropping and then to run on the warped image. Issues with this approach include: the cropped region may not contain the entire object, warping might heavily distort the object (e.g if the
+region is a thin long one), post warping, the CNN loses some information on the scale of the object.
+Considering CNNs to be made up of convolutional and fully connected layers, we see that it is only the fully connected layers that cannot deal with varying sized input. In CNNs, these fully connected layers appear at the highest layers. SPPNet introduces a SPP layer in between the convolution layers and the fully connected layers so that the convolutions can be done on the entire image (w/o need for cropping and warping) and still produce fixed size vectors for the fully connected layers to use.
+
+SPPNet training is done with varying size images for scale invariance.
+The SPP layer outputs a concatenation of vectors where each vector is formed by running maxpooling over a different sized grid (i.e. different kernel size and stride) applied to the output feature maps of the last convolution layer (note that they consider intermediate max pool layers as equivalent to convolution in the sense that both perform sliding). E.g. the first grid may contain only one max pooling operation running on the entire feature map; the second grid divides the feature map into four regions and max pooling is independently performed on each bin (for each feature map). the third grid divides the feature map into 16 regions and so on.
+
+For training, note that most sw packages typically work with fixed size images (i.e. the size of the SPP kernels/strides may need to be known ahead of time).
+Single size training: 224 x 224 crop of the image is taken and used in training. since the input size is fixed, we know apriori the kernel and stride sizes for each of the SPP layers.
+Multi size training: this is done by using two fixed size networks that share parameters. one takes input of size 224 x 224 and the other 180 x 180. For generating 180 x 180 inputs, the 224 x 224 crop is simply resized instead of cropped again. During training, the 224 network is trained for a full epoch followed by 180 network for a full epoch and continued in this alternating fashion. Since they share weights, each is being updated every epoch.
+
+Training is done on ILSVRC 2012 similar to alexnet: image is rescaled such that smaller side is 256. 11 224 x 224 crops are taken and color altering is performed (i.e. PCA based). Dropout is applied on the fully connected layers. 
+Following grids are used for evaluation {6x6, 3x3, 2x2, 1x1}. With single-size trained network, performance is better by ~0.5%. With multi-size trained network, it is better by ~1%. In the multi-size scenario, training sizes are 180 and 224. Testing size is 224.
+The paper also evaluates images in full view; i.e. the image is rescaled such that the min side is 256. Then the CNN is run on the entire rescaled image. This improves performance by ~0.2%. The feature vector from this operation may be used for similarity comparisons.
+Multi-view testing on feature maps is performed by running the convolution layers on the entire image (image may be rescaled prior to doing so). Target windows on the image have corresponding windows on the feature maps that are output by the last conv layer. For each of these windows, SPP is performed followed by the fully connected layers and the softmax layer. The scores from multiple windows are averaged for the final prediction (e.g. 10  224x224 windows from a 256xN or Nx256 image)
+How is a window in the image mapped to a window in the feature maps of the last conv layer? We just need to understand how a point is mapped from the image to feature map space: the target point is the one which has a receptive field with the center as close to the point in the image as possible. See appendix A for an example.
+This idea is extended to extract multiple views from multiple scales for testing. Image is resized such that the smaller side is one of {224, 256, 300, 360, 448, 560}. From the rescaled image, 9 views are taken (center, corners and middle of each side). Horizontal flips are also taken. Additionally full image views are also used.
+
+Their ILSVRC submission in classification was SPP built on Overfeat network.
+
+They extend RCNN by making use of the SPP layer to avoid recomputing convolutions on each region proposal in the image. Convolutions are performed only once. Region proposals are mapped from the image space to the feature map space and SPP/fully-connected are run on the regions in the feature map space. In RCNN finetuning is done throughout the network to adapt it to the PASCAL dataset. In SPPNet, finetuning is done only on the fully connected layers (it will be complicated to backprop through the SPP layer)
+Note though that SPPNet uses ZF-5 for detection.
+
+For a pyramid level with n x n bins and a conv5 feature map size of a x a; the pooling window size is ceil(a/n) and stride is floor(a/n)
+
+
+——————————————————————————
+
+Fast RCNN
+
+Uses VGG-16 and achieves significant speedup relative to RCNN and SPPnet. PASCAL VOC 2012 mAP increased from 62% for RCNN to 66% for Fast RCNN. 
+
+Drawbacks of RCNN:
+Multistage training pipeline: a) finetuning using softmax b) training SVM classifiers c) training bounding box regressor
+Training takes a lot of time and space: 2) for SVM and bounding box regressor training, each region proposal of each image is warped  and passed through the network and the resulting features are written to disk. This takes couple of days in time and hundreds of gigabytes in space for the 5000 images in VOC2007 trainval set
+Slow test time detection: VGG16 takes ~50s per image
+
+Advantages of Fast RCNN:
+better detection quality
+single stage training
+can train all layers (unlike SPPNet which only finetunes the fully connected layers)
+no need to cache features
+
+Each image and its regions of interest (RoI - region proposals) are fed through convolution layers (may include pooling) to obtain feature maps and the projection of the RoI on the feature maps. The projected RoI is pooled into a fixed size and passed through fully connected layers. Two heads are attached to the output of the fully connected layers: a new fully connected layer + a softmax layer for classification (classes + background) and a new fully connected layer + a regression layer for bounding box prediction (4 numbers for each class).
+The RoI concept can be thought of as a simplified version of SPP wherein only one bin size is applied.
+
+a convnet adopts Fast RCNN by doing the following 
+a) the last max pool layer is replaced by the RoI pooling layer. the number of bins in the RoI is dependent on the input expected by the fully connected layer (e.g. 7x7 for VGG16).
+b) the softmax classifier and the FC layer prior to it is replaced with two heads as described earlier (each having its own fully connected layer)
+c) network is modified to take a batch of images and corresponding list of RoIs. The image resolution may change batch to batch
+
+SPPNet and RCNN do RoI centric sampling for minibatch. i.e. each minibatch is a random collection of RoIs from all images, so each minibatch potentially contains multiple images. Fast RCNN does image-centric sampling where an image is randomly sampled and then RoIs are sampled from it. The advantage here is that RoIs from the same image can reuse the convolution layer’s computation. Thinking of it a bit differently, for each back prop iteration, the weights are updated, so forward prop needs to be updated too. This means that the conv layers need to recompute the feature maps for all the images in the mini batch. By sampling multiple RoIs from the same image, we reduce the number of distinct images per mini batch.
+
+For the regression network, the parametrization is as per the equations used for RCNN. 
+Loss function used is a combination of loss for the softmax head and the regression head. The softmax head follows the standard cross entropy loss. The regression head uses smoothed-L1 loss (quadratic for x < 1, linear for x > 1) on x, y, w, h and sums the four losses. The smoothed loss prevents exploding gradients when the estimation error is large.
+
+Minibatch SGD: the minibatch is made of 128 RoIs, two images are randomly selected and 64 RoIs are randomly chosen from each. 25% of the RoIs are positive examples, i.e. have IoU > 50% with a ground truth class. Rest have < 50% overlap and are negative examples, i.e. assigned to the background class. RoIs are flipped horizontally w/ probability 0.5.
+Backprop through RoI regions is as expected: Each minibatch consists of two images and 128 RoIs. Derivative w.r.t the pooled RoI neurons are computed as usual. Then, for each input neuron to the RoI pooling layer, its derivative is the sum over all RoIs of the derivative w.r.t certain neuron in the pooled RoI. The neuron in the pooled RoI is the one for which this neuron was the argmax - if such a situation exists. Alternately, one can think of the RoI pooling as selecting certain connections and disabling others. The derivatives backpropagate only through the connections that are selected.
+The weights for the softmax are from N(0, 0.01); weights for the bounding box regressor are from N(0, 0.001). Learning rate for biases is 2X rate for weights. Global learning rate is 0.001. Momentum is 0.9 and weight decay is 0.0005.
+Multiscale training is performed by randomly sampling a scale when an image is sampled (for the minibatch). During testing, multiscale is done by testing on an image pyramid. the list of RoIs provided to the network will indicate the level of the image pyramid to which the RoI is associated. Each predicted bounding box is associated with a confidence (i.e. the class probability). This is used in performing non-maximal suppression as in RCNN.
+
+Speeding up inference in a fully connected layer: Consider weight W of a fully connected layer to be of dimension uxv. Decomposing through SVD to U*Sigma*V, U has dimensions uxt and V has dimensions txv. Sigma is of dimension txt. If the number of eigenvalues t is significantly less than min(u,v), we save parameters and computation because USigmaV needs ut+tv operations while W needs uv operations. The single W layer has been replaced by two fully connected layers, the first one with matrix Sigma*V (maps v dimensions to t dimensions) and the second one with U (maps t dimensions to u dimensions) and the original biases associated with W.  
+
+On PASCAL VOC07, Fast RCNN mAP is similar to RCNN mAP. SPPNet is 3% lower - likely due to not finetuning all layers. On VOC10 and VOC12, Fast RCNN is 3-4% higher than RCNN.
+Singificant speedup observed for both training and testing. 
+SVD is used to replace the weights feeding into the FC6 and FC7 layers in VGG 16. In FC6 case, top 1024 singlular values are used out of the 25088x4096 matrix and in FC7 case, top 256 singular values are used out of the 4096x4096 matrix. 
+
+Not fine-tuning the conv layers in VGG16 (i.e. layers below RoI pooling layer) results in 5% loss in VOC07. But this doesn’t mean we want to fine tune all conv layers. Finetuning from the third conv layer is sufficient for close to optimal performance. Including the 2nd conv layer adds 30% training time and including the 1st layer causes memory overrun.
+
+Does multitask learning matter? On VOC07 mAP: Using the network trained with multitask loss but with bounding box regression turned off provides better performance than a network trained with the regression loss given zero weight. Also, two stage training where the network is first trained with regression loss given zero weight and then trained just on the regression loss (and the FC layer associated with it) with all other parameters frozen, does worse.
+
+Does multiscale matter? Multiscale training and testing performs similarly to single scale training and testing.
+Does SVM outperform Softmax? Recall that in RCNN we used SVMs for identifying the class. In Fast RCNN, softmax is used as the classifier. Training SVM on Fast RCNN with hard negative mining results in similar performance as the Softmax. 
+In Fast RCNN, the sparse region proposals are the speed bottleneck. So, can we replace it with dense sliding window evaluation? Dense evaluation results in 5% reduction in mAP suggesting that the use of sparse proposals reduces regions that are false positives. If the detector is improved, then use of dense regions will be competitive since the detector is less likely to answer incorrectly.
+
+————————————————
+Faster RCNN
+
+Region proposal algorithms are the bottleneck in detection. Selective search takes up to 2 sec per image and EdgeBoxes takes 0.2 seconds per image (about the same speed as the rest of the detection). Note though that these algorithms are run on cpu while the rest of the detection network is run on gpu. Even though running these on gpu is one way to speed them up, trying to do proposals through neural nets may be better since the net may share computation (i.e. layers) with the detection net.
+
+Other papers have also proposed ways of using deep networks for predicting object bounding boxes. In Overfeat, box coordinates are predicted for each class by running the network in a sliding manner over the input. the box proposals are then merged.
+
+Architecture of the RPN (Region Proposal Network): The network consists of convolution layers run in a sliding manner over the image to generate feature maps. E.g. the first 5 layers of ZF or first 13 layers of VGG 16 may be used for this purpose. Then a 3x3 convolution is done on these feature maps to output 256 dimension feature maps. Following this 1x1 convolution with 2*K dimension is performed for classification and a parallel 1x1 convolution with 4*K dimension is performed for bounding box prediction. Here K is the number of bounding box proposals made for each location of the 3x3 convolution window. The reason classification layer is 2*K is because for each proposal a 2 node softmax is used - to indicate whether the proposal contains an object or not. The box proposals are parametrized relative to anchors. anchors are boxes of predetermined size and scale centered at the center of the 3x3 window. There are 9 such anchors consisting of 3 scales and 3 aspect ratios. By using anchors of multiple scales, RPN avoids the need to run over images of various scales (as done in other tasks) or to use filters of various sizes.
+
+Training: note that there are 9 anchors for each location of the 3x3 sliding window. Considering all the anchors over the image, some of them are assigned as containing objects, some as not containing objects and rest are ignored (i.e., not used for training). The positive
+anchors are determined as those which have the maximum IoU with a ground truth box or an IoU > 70%. The negative anchors are those with IoU < 30% for any ground truth box. The loss function is a sum of classification loss (softmax loss for the two classes; summed over the anchor boxes) and regression loss (sum of smooth L1 applied on the error in the parametrized version of x, y, w, h - center x, center y, width and height) over all the positive/negative anchor boxes for the image. The regression loss term is present only for those anchor boxes that are positive.  The parametrization for the regression loss is like in RCNN but done w.r.t the anchor box (i.e. x = w_anchor*t+x_anchor, w = w_anchor*exp(t)). The ground truth box is parametrized to get t_ground_truth and the prediction is parametrized to get t_prediction. Smoothed L1 loss is taken on these parameters - because during inference t_prediction is what the network will be predicting and the ground truth of t_prediction is t_ground_truth.
+
+Note that the features used for bounding box prediction are from the 3x3 sliding window. All 9 variants of the anchor boxes use the same feature from 3x3 sliding window. However the weights in the last layer (regression head) are different for each of the anchors. Contrast with RoI pooling (Fast RCNN) where the features are pooled from arbitrarily sized regions.
+
+Mini batch sampling is image-centric like in Fast RCNN. Each minibatch is constructed from one image. positive and negative anchor boxes are randomly sampled to roughly get equal numbers. Note that if all positive/negative anchor boxes are used, the negative ones will dominate. New layers are initialized with N(0, 0.01). On VGG16, only layers from conv3 onward are fine tuned. Learning rate for fine tuning is 0.001 for 60k mini batches and 0.0001 for the next 20k mini batches on PASCAL VOC. Momentum is 0.9 and weight decay is 0.0005.
+
+The full network consists of a combination of RPN and Fast RCNN. The convolution layers are shared between them. Following are various options for training the full network: a) Alternating training - train the RPN first, use its proposals to train Fast RCNN, refine the RPN, refine Fast RCNN and so on. Note that since the conv layers are shared, they benefit from updates in each step b) Approximate joint training - In this approach, the loss consists of the combination of the RPN and Fast RCNN losses. in the forward prop, the RPN proposals are used in Fast RCNN. In backward prop, the gradients from both networks’ losses are added up. Note that since the RoI pooling region is determined by the RPN network’s box predictions, we should consider the gradient of the Fast RCNN loss w.r.t these parameters as well. However the RoI pooling layer is not differentiable w.r.t these (e.g. think of RoI pooling over an interval [t_1, t_2] in single dimension. small changes in t_1 may not cause any change in the pooled layer - if it doesn’t change the pixels covered in the RoI or may cause a sudden change - if the newly covered pixel has a large value exceeding the current max).  c) non-Approximate training - use a differentiable RoI layer so that the gradient w.r.t the bounding box prediction parameters is not ignored
+
+In the paper, a 4 step alternating training is used: first an RPN is trained. Then a Fast RCNN network is trained independently - not using the RPN’s weights. Then an RPN is initialized with the Fast RCNN’s weights and only the layers unique to RPN are fine-tuned. In the final step the layers unique to Fast RCNN are fine tuned. 
+
+Both training and testing is done at single scale - the image is resized so that the smallest side is 600 pixels. The anchors are of areas {128**2, 256**2, 512**2} and aspect ratios {1:1, 1:2, 2:1}. Anchor boxes that cross the image boundary are ignored. including them prevents training convergence - may be due to all ground truth boxes being within the image, we don’t have enough samples for the case where the anchor boxes are outside? During testing, predictions crossing the image boundary are allowed - these are clipped to the image boundary.
+
+Non maximum suppression is used to reduce the number of predictions. The RPN’s softmax scores are used for this purpose. IoU threshold for this is 70%. After NMS, the top proposals may be selected for use. Training uses 2000 proposals, testing uses 300, 1000, 2000.
+Compared w/ Selective search and Edge boxes, the RPN provides competitive performance with just 300 proposals.
+Changing the RPN’s convnet to VGG while keeping the Fast RCNN’s convnet as ZF improves mAP by 3%, suggesting that the region proposals can take advantage of better convnet architectures.
+
+Using one anchor box instead of 9 reduces mAP by 3-4%. Using 3 scales alone or 3 aspect ratios alone performs almost as well as using all 9 anchor boxes.
+Skipping the RPN layer and instead running Fast RCNN in a sliding window manner over the image, using 9 windows - 3 scales and 3 aspect ratios, results in ~5% lower mAP performance. This indicates that the objectness detection done by RPN is valuable to the Fast RCNN network.
+
+ 
 —————————————————————————————
 Polyak averaging:
 average the parameters over past time steps; i.e. = (1/T) * sum_i_0toT parameter( i )
-—————
+—————---------
 How is the mini batch gradient computation implemented? is it that after forward prop, the gradients at the top are initialized (e.g. gradient of softmax w.r.t the logics) and back prop is done from that point on?
+—————————————
+what is mean average precision ??
+——————————————————
+
+what is hard negative mining ?
+
+From ‘Object Detection with Discriminatively Trained Part Based Models’
+
+In some cases such as detection, there may be a large number of negative examples (i.e. a large number of region proposals that do not contain the object). Training on all these is infeasible, hence we use hard negatives. They way this is done is that the detector is first trained with a reasonable set of negative examples. Then using this detector, hard negatives are collected. These are examples that the detector misclassifies as positives. A new model is trained with these hard negatives, and the process may be repeated a few times.
+
+———————————————————————
 
 
