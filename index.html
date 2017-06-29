@@ -702,8 +702,8 @@ The resulting features are used to train a binary linear SVM for each class. For
 are the ones with < 30% IoU with the ground truth. Hard-negative mining is used for the SVM training.
 In RCNN finetuning is done throughout the network to adapt it to the PASCAL dataset. In SPPNet, finetuning is done only on the fully connected layers (it will be complicated to backprop through the SPP layer)
 For fine-tuning, positive samples are those with > 50% overlap and negative examples are those with < 50% overlap. 
-Note though that SPPNet uses ZF-5 for detection. In each minibatch, 25% of the samples are positive. For bounding box regression, positive samples are those
-with more than 50% overlap with ground truth. The input to the regression is the carpets and furniture
+Note though that SPPNet uses ZF-5 for detection. In each minibatch, 25% of the samples are positive. For bounding box regression, samples are those
+with more than 50% overlap with ground truth. The input to the regression is the pooled features that are output by the SPP layer.
 
 For a pyramid level with n x n bins and a conv5 feature map size of a x a; the pooling window size is ceil(a/n) and stride is floor(a/n)
 
