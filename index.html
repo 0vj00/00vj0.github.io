@@ -705,8 +705,13 @@ For fine-tuning, positive samples are those with > 50% overlap and negative exam
 Note though that SPPNet uses ZF-5 for detection. In each minibatch, 25% of the samples are positive. For bounding box regression, samples are those
 with more than 50% overlap with ground truth. The input to the regression is the pooled features that are output by the SPP layer.
 
-For a pyramid level with n x n bins and a conv5 feature map size of a x a; the pooling window size is ceil(a/n) and stride is floor(a/n)
+SPPNet performs comparably with RCNN on VOC07 detection dataset. Combining two SPPNets gives a slight improvement in mAP. Note that if the two 
+share conv layers and only fine-tune the FC layers instead, no gain is observed. During testing, the bounding scored box proposals are taken from both the 
+nets and non maximum suppression is performed. A stronger prediction from one net can remove weaker predictions from another net.
 
+For a pyramid level with n x n bins and a conv5 feature map size of w x h; the pooling bins are [floor((i-1) / n * w), ceil(i/n * w)] for i in [1,n]. height is 
+divided up in a similar manner. Intuitively, we are dividing as if we are on a real numbered axis, then ensuring these points are included in the bin by applying floor on the left/bottom and
+ceil on the right/top.
 
 ——————————————————————————
 
