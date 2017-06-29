@@ -688,15 +688,22 @@ Training is done on ILSVRC 2012 similar to alexnet: image is rescaled such that 
 Following grids are used for evaluation {6x6, 3x3, 2x2, 1x1}. 
 Multi-level pooling (i.e the multiple pooling shapes in the SPP layer) improves classification accuracy (testing done using standard 10 crop).
 Multi-size trained network improves accuracy even further. In the multi-size scenario, training sizes are 180 and 224. Testing size is 224 (standard 10 crop).
-Full-view testing; i.e. the image is rescaled such that the min side is 256. Then the CNN is run on the entire rescaled image. This improves performance by ~0.2%. The feature vector from this operation may be used for similarity comparisons.
-Multi-view testing on feature maps is performed by running the convolution layers on the entire image (image may be rescaled prior to doing so). Target windows on the image have corresponding windows on the feature maps that are output by the last conv layer. For each of these windows, SPP is performed followed by the fully connected layers and the softmax layer. The scores from multiple windows are averaged for the final prediction (e.g. 10  224x224 windows from a 256xN or Nx256 image)
+Full-view testing; i.e. the image is rescaled such that the min side is 256. Then the CNN is run on the entire rescaled image. This improves performance relative to a single center 224x224 crop. However, multiple 224x224 crops perform better than the full view. The feature vector from this operation may be used as a representation of the image.
+Multi-view testing on feature maps is performed by running the convolution layers on the entire image (image may be rescaled prior to doing so). Target windows on the image have corresponding windows on the feature maps that are output by the last conv layer. For each of these windows, SPP is performed followed by the fully connected layers and the softmax layer. The scores from multiple windows are averaged for the final prediction (e.g. 10  224x224 windows from a 256xN or Nx256 image). 
+Experiments show that the standard 10 view 224x224 inference has very similar results irrespective of whether it is done as 10 separate 224x224 crops or whether a multi-view approach is taken.
 How is a window in the image mapped to a window in the feature maps of the last conv layer? We just need to understand how a point is mapped from the image to feature map space: the target point is the one which has a receptive field with the center as close to the point in the image as possible. See appendix A for an example.
 This idea is extended to extract multiple views from multiple scales for testing. Image is resized such that the smaller side is one of {224, 256, 300, 360, 448, 560}. From the rescaled image, 9 views are taken (center, corners and middle of each side). Horizontal flips are also taken. Additionally full image views are also used.
 
 Their ILSVRC submission in classification was SPP built on Overfeat network.
 
-They extend RCNN by making use of the SPP layer to avoid recomputing convolutions on each region proposal in the image. Convolutions are performed only once. Region proposals are mapped from the image space to the feature map space and SPP/fully-connected are run on the regions in the feature map space. In RCNN finetuning is done throughout the network to adapt it to the PASCAL dataset. In SPPNet, finetuning is done only on the fully connected layers (it will be complicated to backprop through the SPP layer)
-Note though that SPPNet uses ZF-5 for detection.
+They extend RCNN by making use of the SPP layer to avoid recomputing convolutions on each region proposal in the image. 
+Convolutions are performed only once. Region proposals are mapped from the image space to the feature map space and SPP/fully-connected are run on the regions in the feature map space. 
+The resulting features are used to train a binary linear SVM for each class. For the SVM training, positive samples are the ground-truth and negative samples 
+are the ones with < 30% IoU with the ground truth. Hard-negative mining is used for the SVM training.
+In RCNN finetuning is done throughout the network to adapt it to the PASCAL dataset. In SPPNet, finetuning is done only on the fully connected layers (it will be complicated to backprop through the SPP layer)
+For fine-tuning, positive samples are those with > 50% overlap and negative examples are those with < 50% overlap. 
+Note though that SPPNet uses ZF-5 for detection. In each minibatch, 25% of the samples are positive. For bounding box regression, positive samples are those
+with more than 50% overlap with ground truth. The input to the regression is the carpets and furniture
 
 For a pyramid level with n x n bins and a conv5 feature map size of a x a; the pooling window size is ceil(a/n) and stride is floor(a/n)
 
