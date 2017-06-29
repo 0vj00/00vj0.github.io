@@ -672,20 +672,23 @@ For semantic segmentation, CPMC (constrained parametric min-cuts) algorithm is a
 ----------------------------
 SPPNet
 
-The approach to running CNNs on regions of an image are to warp the image after cropping and then to run on the warped image. Issues with this approach include: the cropped region may not contain the entire object, warping might heavily distort the object (e.g if the
-region is a thin long one), post warping, the CNN loses some information on the scale of the object.
+The approach to running CNNs on regions of an image are either to crop the region from image (if image is larger) or warp (if region is small/thin). 
+The cropped region may not contain the entire object while warping might heavily distort the object (e.g if the
+region is a thin long one). Post warping, the CNN looses information on the scale of the object. Instead can we run the CNN on an arbitrary image size?
 Considering CNNs to be made up of convolutional and fully connected layers, we see that it is only the fully connected layers that cannot deal with varying sized input. In CNNs, these fully connected layers appear at the highest layers. SPPNet introduces a SPP layer in between the convolution layers and the fully connected layers so that the convolutions can be done on the entire image (w/o need for cropping and warping) and still produce fixed size vectors for the fully connected layers to use.
 
 SPPNet training is done with varying size images for scale invariance.
 The SPP layer outputs a concatenation of vectors where each vector is formed by running maxpooling over a different sized grid (i.e. different kernel size and stride) applied to the output feature maps of the last convolution layer (note that they consider intermediate max pool layers as equivalent to convolution in the sense that both perform sliding). E.g. the first grid may contain only one max pooling operation running on the entire feature map; the second grid divides the feature map into four regions and max pooling is independently performed on each bin (for each feature map). the third grid divides the feature map into 16 regions and so on.
 
-For training, note that most sw packages typically work with fixed size images (i.e. the size of the SPP kernels/strides may need to be known ahead of time).
+For training, note that most sw packages typically work with fixed size images (i.e. the size of the SPP kernels/strides may need to be known ahead of time). Due to this, training is done at one or two fixed sizes.
 Single size training: 224 x 224 crop of the image is taken and used in training. since the input size is fixed, we know apriori the kernel and stride sizes for each of the SPP layers.
 Multi size training: this is done by using two fixed size networks that share parameters. one takes input of size 224 x 224 and the other 180 x 180. For generating 180 x 180 inputs, the 224 x 224 crop is simply resized instead of cropped again. During training, the 224 network is trained for a full epoch followed by 180 network for a full epoch and continued in this alternating fashion. Since they share weights, each is being updated every epoch.
 
-Training is done on ILSVRC 2012 similar to alexnet: image is rescaled such that smaller side is 256. 11 224 x 224 crops are taken and color altering is performed (i.e. PCA based). Dropout is applied on the fully connected layers. 
-Following grids are used for evaluation {6x6, 3x3, 2x2, 1x1}. With single-size trained network, performance is better by ~0.5%. With multi-size trained network, it is better by ~1%. In the multi-size scenario, training sizes are 180 and 224. Testing size is 224.
-The paper also evaluates images in full view; i.e. the image is rescaled such that the min side is 256. Then the CNN is run on the entire rescaled image. This improves performance by ~0.2%. The feature vector from this operation may be used for similarity comparisons.
+Training is done on ILSVRC 2012 similar to alexnet: image is rescaled such that smaller side is 256. 10 224 x 224 crops are taken and color altering is performed (i.e. PCA based). Dropout is applied on the fully connected layers. 
+Following grids are used for evaluation {6x6, 3x3, 2x2, 1x1}. 
+Multi-level pooling (i.e the multiple pooling shapes in the SPP layer) improves classification accuracy (testing done using standard 10 crop).
+Multi-size trained network improves accuracy even further. In the multi-size scenario, training sizes are 180 and 224. Testing size is 224 (standard 10 crop).
+Full-view testing; i.e. the image is rescaled such that the min side is 256. Then the CNN is run on the entire rescaled image. This improves performance by ~0.2%. The feature vector from this operation may be used for similarity comparisons.
 Multi-view testing on feature maps is performed by running the convolution layers on the entire image (image may be rescaled prior to doing so). Target windows on the image have corresponding windows on the feature maps that are output by the last conv layer. For each of these windows, SPP is performed followed by the fully connected layers and the softmax layer. The scores from multiple windows are averaged for the final prediction (e.g. 10  224x224 windows from a 256xN or Nx256 image)
 How is a window in the image mapped to a window in the feature maps of the last conv layer? We just need to understand how a point is mapped from the image to feature map space: the target point is the one which has a receptive field with the center as close to the point in the image as possible. See appendix A for an example.
 This idea is extended to extract multiple views from multiple scales for testing. Image is resized such that the smaller side is one of {224, 256, 300, 360, 448, 560}. From the rescaled image, 9 views are taken (center, corners and middle of each side). Horizontal flips are also taken. Additionally full image views are also used.
