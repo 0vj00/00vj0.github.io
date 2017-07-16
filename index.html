@@ -796,7 +796,16 @@ PASCAL VOC 2007
 20 classes. two main tasks - classification and detection, two taster tasks - segmentation and person layout.
 totally about 10k images. 5k for trainval (2.5k train, 2.5k val) and 5k for test.
 evaluation is done by computing the precision/recall curve and average precision (AP). 
- 
+50% overlap is required for a result to be considered a true positive
+
+the precision recall curve is computed by varying the threshold for declaring a positive. E.g. the classifier will give confidence values for classifying an image
+as a certain class. by sweeping the threshold, we can vary the precision and recall characteristics for the algorithm. 
+AP is computed by mean( max( precision for recall >= t ) over t = 0:1:0.1 ). Why use max(.)? because there is no benefit to operating at a 
+recall less than the value corresponding to this point - we do not gain in precision by doing so.
+
+For detection, the bounding boxes are sorted in decreasing order of confidence. Then each proposed bounding box is checked against every ground truth box for IOU > 50%. If none are found, it is treated as a false positive (i.e.
+if the threshold for declaring a positive is such that this bounding box would be declared positive, it turns out to be a false positive). If at least one is found for which another higher confidence bounding box has had a match, it is 
+still declared a false positive. In the final case where at least one is found for which no other higher confidence bounding box is matched, it is declared a true positive.
  
 —————————————————————————————
 Polyak averaging:
