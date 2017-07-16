@@ -791,6 +791,12 @@ Changing the RPN’s convnet to VGG while keeping the Fast RCNN’s convnet as Z
 Using one anchor box instead of 9 reduces mAP by 3-4%. Using 3 scales alone or 3 aspect ratios alone performs almost as well as using all 9 anchor boxes.
 Skipping the RPN layer and instead running Fast RCNN in a sliding window manner over the image, using 9 windows - 3 scales and 3 aspect ratios, results in ~5% lower mAP performance. This indicates that the objectness detection done by RPN is valuable to the Fast RCNN network.
 
+____________________________
+PASCAL VOC 2007
+20 classes. two main tasks - classification and detection, two taster tasks - segmentation and person layout.
+totally about 10k images. 5k for trainval (2.5k train, 2.5k val) and 5k for test.
+evaluation is done by computing the precision/recall curve and average precision (AP). 
+ 
  
 —————————————————————————————
 Polyak averaging:
