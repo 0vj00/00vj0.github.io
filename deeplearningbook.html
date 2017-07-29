@@ -17,3 +17,43 @@ imputation of missing values - fill in values that are missing in a sample
 denoising - compute denoised version of sample
 density estimation - compute probability density of the sample space p(x)
 
+F1 score = harmonic mean of precision and recall
+high precision = low false alarm
+high recall = low missed detection
+
+unsupervised learning - learns p(x)
+supervised learning - learns p(y|x)
+
+design matrix - a way of representing the dataset; rows are the examples, columns are the features
+in case of supervised learning, we also have a set of labels
+
+Linear regression bias term can be modeled by augmenting the samples with an extra feature that takes value of 1. Then the problem
+becomes to find weights w such that Xw = Y where the L2 norm of Xw - Y is minimized. i.e. projection of Y onto the column space of 
+X.
+
+Y = Xw + Y' where X.T * Y' = 0 (i.e. Y' is in the null space of X.T; because Y' should be orthogonal to any vector in the subspace).
+w = (X.T * X)**-1 * X.T * Y
+
+if train and test sets are collected arbitrarily, not much we can do in terms of making predictions for test set.
+if samples in train and test are collected i.i.d from the same data generating distribution, the expected training set error = expected test set error if parameters are fixed ahead of time
+since parameters aren't fixed by optimized to reduce the training set error, test set error > training set error
+
+machine learning algorithm performance affected by
+making training error small - underfitting
+making gap between training and testing error small - overfitting
+these are controlled by the capacity of the model whose parameters are being learnt. 
+low capacity tends to underfit while high capacity tends to overfit.
+roughly, capacity is the ability to fit many different functions.
+representational capacity - family of functions the model can choose from (e.g. linear)
+learning algorithm tries to find the best function within this family, but in practice finds an acceptable one that reduces training error
+significantly. taking such factors into account, we have effective capacity.
+statistical learning theory shows that the gap between training error and test error is bounded by a factor that grows as the capacity grows
+but shrinks as the number of samples increases.
+
+typically the training error will reduce till it hits a lower bound called the bayes error. This quantity represents the error due to
+1) the features may be insufficient to fully describe the labels (i.e. labels are affected by other features that aren't captured) 
+2) inherent randomness in the mapping between X and y (e.g. given an X, y may take on one of multiple values but our model usually predicts
+a particular y) - e.g. in classification
+
+non-parameteric models can provide arbitrarily high capacity
+parametric models learn a function that is described by a parameter vector whose size is fixed prior to seeing data
