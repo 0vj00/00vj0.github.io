@@ -53,7 +53,59 @@ but shrinks as the number of samples increases.
 typically the training error will reduce till it hits a lower bound called the bayes error. This quantity represents the error due to
 1) the features may be insufficient to fully describe the labels (i.e. labels are affected by other features that aren't captured) 
 2) inherent randomness in the mapping between X and y (e.g. given an X, y may take on one of multiple values but our model usually predicts
-a particular y) - e.g. in classification
+a particular y) - e.g. in classification; also maybe there is inherent noise in the system
 
 non-parameteric models can provide arbitrarily high capacity
 parametric models learn a function that is described by a parameter vector whose size is fixed prior to seeing data
+e.g. of non-parametric is nearest-neighbor regression. another example is wrapping a parametric model inside an algorithm that
+increases the number of parameters as the training set size increases.
+
+any fixed parametric model with less than optimal capacity will asymptote to an error value higher than the bayes error.
+a model might have optimal capacity and still the gap between train and test errors might be high. in this case, more data is needed to 
+reduce the gap. e.g. consider the extreme case with just 1-10 samples.
+
+the training error may be less than the bayes error. e.g. consider a polynomial model fit to a linear+gaussian_noise data set. The 
+polynomial model will fit to the sampling errors and achieve close to zero MSE. in this case, the testing error is likely to be higher than
+the bayes error since the optimal value for a given x is the one given by the linear model.
+as the training size increases to infinity, the training error of any fixed capacity model must be at least the bayes error since it won't be
+able to memorize/learn the sampling errors.
+
+regularization can be thought of as expressing a preference over the functions in the representational capacity of the model. e.g. 
+weight decay expresses preference for functions that have small coefficients.
+regularization is any modification we make that is intended to reduce the test error but not the training error.
+it is better to use regularization to express preference over the space of functions in the representational capacity than to explicitly
+limit the functions in the space by excluding them altogether. in the first case, the algorithm might still choose a complex function if it sees
+sufficient benefit (e.g. reduction in error outweights the weight decay penalty)
+
+hyperparameters are parameters that control the model / algorithm which the algorithm does not modify. This may be due to the parameter being difficult
+to optimize and hence the algorithm doesn't know how to modify it or more often, it may be that it is not appropriate to modify this parameter 
+because it controls model capacity (e.g. layers of mlp) - hence training on it will always result in the model with highest capacity.
+This issue is solved by use of a validation set. the validation set is used to 'learn' the best hyperparameters (or can be thought of as model selection)
+
+If dataset size is of concern, k-fold cross validation may be used to estimate the generalization error (train to test or train to val)
+Small dataset size is concerning because the estimate of the error will have high variance.
+
+Frequentist view: theres a fixed unknown parameter associated with the data generation. we want to estimate this parameter. 
+point estimate is any function of the data. sinc the data is random, the point estimate is a random variable.
+bias is the difference between the expectation of the point estimate and the true value of the parameter. the expectation is over the
+data (i.e. data generating distribution). an estimator is aymptotically unbiased if the bias term goes to zero as the number of data samples
+used by the estimator goes to infinity.
+estimating the mean and standard error (i.e. sqrt of variance) of the generalization error: compute the error for each sample in the 
+test set. take sample mean as an estimator of the mean generalization error. take sqrt of the sample variance as estimator of the true 
+standard error. use gaussian assumption (justified because the test samples are i.i.d?) to generate confidence intervals.
+
+confidence interval: 95% confidence interval is the interval over which prob is 0.95 that the true parameter falls in the interval. 
+e.g. consider estimating the mean of a gaussian. the true mean is a non-random parameter. the estimate is a random variable - i.e. it is 
+an instance of the gaussian. p( mean is in interval) = p( estimate mean is in interval [true mean - k, true mean + k] ) = 0.95. 
+from this we get k = 1.96 * sqrt( variance estimate )
+
+in the case where the test error is measured as a MSE between an estimate and a true value, the MSE can be broken down as bias**2 + variance
+(of the estimate)
+
+consistent estimator is one which tends to the true value (almost surely in probability) as the number of data samples increases to infinity. Note
+that in this definition, expectation is not taken (contrast with definition of unbiasedness)
+
+maximum likelihood estimation is equivalent to minimizing the KL divergence between the empirical data distribution and the model. 
+This is the same as minimizing the cross-entropy between the empirical distribution and the model.
+Ideally we want the model to match the true data generating distribution but we don't have access to it. instead we match the data generating
+distribution.
