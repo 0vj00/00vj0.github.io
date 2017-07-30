@@ -197,7 +197,42 @@ The covariance matrix of z = z.T * z = W.T * x.T * x * W = W.T * W * Sigma * W.T
 Sigma is the diagonal eigenvalue matrix of x.T * x; hence z is uncorrelated. the eigenvalues of x.T * x correspond to the variance along each principal component
 
     
-see SVM from Andrew Ng's notes
-see bias variance tradeoff from ESLII
+Chapter 7: Regularization
+    
+Parameter norm penalties: L2, L1 norms
+why does L1 lead to sparsity?
+Regularization for underconstrained problems: e.g. in PCA, we need to compute the inverse of the covariance matrix. if we don't have enough independent samples, this is not possible.
+    In this case, instead we invert ( X.T * X + alpha * I ), i.e. we add alpha amount of variance along the coordinate directions
+Dataset augmentation
+Noise robustness
+    noise added to hidden layers -> dropout
+    noise added to data
+    noise added to weights -> causes algorithm to find parameters which are surrounded by flat region (i.e. small perturbation of the parameter value doesnt change the objective function value)
+Label smoothing
+    for softmax targets, using 0 or 1 may not be best since the algorithm will continue learning larger weights in order to get the softmax to achieve these values. 
+    instead the targets are made to be epsilon/(k-1) and 1-epsilon (k s.t. prob sums to 1); which are achievable by the softmax.
+Multi-task learning
+    a base network is used to obtain a shared representation. multiple 'heads' are attached to the representation to further process this representation to solve various tasks. 
+    error over all tasks are minimized such that learning carried out for each one influences the shared representation (i.e. backprop all the way). thus the shared part has learnt from multiple tasks.
+    one may also have a head which doesn't solve a task specifically but is used in an unsupervised learning sense.
+Early stopping
+    can be thought of as a model selection problem
+    limits the space of parameters that are explored, so limits the capacity of the model
+Parameter tying / sharing
+    parameter tying refers to keeping parameters close together (e.g. by using L2 norm)
+    parameter sharing refers to having the same values for the parameters
+    the convolution operation in CNN is a good example of parameter sharing. this has enabled CNNs to have bigger architectures w/o corresponding increase in the amt of data.
+Sparse representation
+    Similar to sparsifying the parameters through use of L1 penalty, we can apply L1 to the representation (i.e. the hidden activations)
+Bagging / Model averaging
+    Create k datasets by sampling w/ replacement from the original dataset
+    train a model on each of the k datasets
+    merge the predictions from the k models - e.g. averaging
+Dropout
+Batch normalization
+    enables training set error to improve -> reduces underfitting -> hence a bias reduction technique
+    removes need for dropout -> reduces overfitting -> hence a regularization technique
 
+
+    
 
