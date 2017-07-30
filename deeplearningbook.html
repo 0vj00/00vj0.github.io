@@ -161,24 +161,13 @@ in this case, classification is based on linear_combination(K(x,x_i)) - b; i.e. 
 
 the above formulation is highly sensitive to outliers
 consider the following formulation instead
-max gamma/(1 + C*sum_over_samples(epsilon))
+min L2(w) + C*sum_over_samples(epsilon)
 s.t. 
-  x*w/norm(w) - b >= gamma*(1 - epsilon) if y = +1
-  x*w/norm(w) - b <= -gamma*(1 - epsilon) if y = -1
+  x*w - b >= (1 - epsilon) if y = +1
+  x*w - b <= -(1 - epsilon) if y = -1
   epsilon >= 0
 
-do the following change of variables: set b = b*norm(w), gamma = gamma*norm(w)
-max gamma/[norm(w) * (1 + C*sum_over_samples(epsilon)]
-s.t. 
-  x*w - b >= gamma*(1 - epsilon) if y = +1
-  x*w - b <= -gamma*(1 - epsilon) if y = -1
-  epsilon >= 0
- 
-do the following change of variables: 
-max 1/norm(w) + c*sum_over_samples(gamma*epsilon/norm(w))
-s.t.
-  x*w - b >= 1 - epsilon
-              
+    
 see SVM from Andrew Ng's notes
 see bias variance tradeoff from ESLII
 
