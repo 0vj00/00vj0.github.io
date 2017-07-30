@@ -228,7 +228,21 @@ Bagging / Model averaging
     Create k datasets by sampling w/ replacement from the original dataset
     train a model on each of the k datasets
     merge the predictions from the k models - e.g. averaging
+    averaging reduces the variance w/o affecting the bias because fhat(X) becomes avg(fhat_i(X)) where i represents the ith model. E(avg(fhat_i(X))) = E(fhat(X)) as long as all
+    the models are the same and only the data set is varied. Thus the bias doesn't change. The variance will reduce as long as the models are uncorrelated (i.e. fhat_i(X) are uncorrelated)
 Dropout
+    removes non-output units (i.e. zeros out input and/or hidden units)
+    uses minibatch based learning. for each minibatch, randomly samples a mask to zero out units. then fwd, backward prop and parameter update are run as usual.
+    typically input units are included w/ prob 0.8 and hidden units are included w/ prob 0.5
+    in the case of bagging, the models are independent. in dropout, they share parameters.
+    in bagging, each model is trained to convergence. in dropout most models aren't sampled (exponential number of possible models) and those that are sampled are only 
+    trained for one step. the parameter sharing causes all models to benefit when one is updated.
+    during inference, each unit is multiplied by the probability that the unit is included in a model.
+    dropout is computationally efficient - during training, for each minibatch we need to sample a mask O(n) and remember this mask till backprop is done. during testing only need to scale the weights
+    being a regularization technique, dropout reduces the effective capacity, hence often used in combination with increase in model size to offset this.
+    with dropout, the number of iterations increases, usually doubles when mask probability is 0.5.
+    dropout causes each hidden unit to learn feature that is good in different contexts.
+    the dropout noise can't be additive because the hidden unit would simply learn to output a higher value to make the noise relatively small in comparison
 Batch normalization
     enables training set error to improve -> reduces underfitting -> hence a bias reduction technique
     removes need for dropout -> reduces overfitting -> hence a regularization technique
