@@ -167,6 +167,35 @@ s.t.
   x*w - b <= -(1 - epsilon) if y = -1
   epsilon >= 0
 
+
+    
+    
+Bias Variance Tradeoff (ESL)
+
+Consider a model Y = f(X) + epsilon (where epsilon represents zero mean randomness due to unmodeled factors and/or stochasticness)    
+Our learnt model is fhat(X). we derive the relation between MSE and bias, variance and irreducible error
+In the following equations, all expectations are taken w.r.t the training set samples (i.e. treating them as random variables)
+    
+MSE = E( (Y - fhat(X))**2 | X = x0 ) 
+    = E( (f(X) - fhat(X) + epsilon)**2 | X=x0) 
+    = E( (f(X) - fhat(X))**2 + epsilon**2 + 2*epsilon*(f(X)-fhat(X)) | X = x0)
+    = E( (f(X) - fhat(X))**2 | X = x0) + variance(epsilon)
+    = E( (fhat(X) - E(fhat(X)| X = x0) + E(fhat(X)) - f(X))**2 | X = x0) + variance(epsilon)
+    = E( (fhat(X) - E(fhat(X)))**2 | X = x0 ) + E( (f(X) - E(fhat(X)))**2 | X = x0) + 2* E(fhat(X) - E(fhat(X)))*E(f(X) - E(fhat(X))) + variance(epsilon)
+    = variance(fhat) + (f(X) - E(fhat(X)))**2 + variance(epsilon)
+    = variance(fhat) + bias(fhat)**2 + irreducible error
+    
+ 
+PCA:
+compute covariance or correlation matrix (really depends on the use case, but in general covariance is used if scales of the different dimensions are similar and correlation if we want to normalize the scales)
+perform eigen value decomposition on the matrix to obtain the eigenvector dimensions that capture the most variations
+alternatively, the principal directions are the right singular vectors of the design matrix after mean subtraction and if required (i.e. equivalent to use of correlation matrix), scale normalization (i.e. divide by the std dev)
+
+eigen decomposition: x.T * x = W * Lambda * W.T where Lambda is the diagonal eigenvalue matrix.
+Take z = x * W where x is the original design matrix (mean and optionally scale normalized). This is rotating the sample points so as to decorrelate them.
+The covariance matrix of z = z.T * z = W.T * x.T * x * W = W.T * W * Sigma * W.T * W = Sigma.
+Sigma is the diagonal eigenvalue matrix of x.T * x; hence z is uncorrelated. the eigenvalues of x.T * x correspond to the variance along each principal component
+
     
 see SVM from Andrew Ng's notes
 see bias variance tradeoff from ESLII
