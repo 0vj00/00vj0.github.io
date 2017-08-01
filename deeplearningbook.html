@@ -247,6 +247,18 @@ Batch normalization
     enables training set error to improve -> reduces underfitting -> hence a bias reduction technique
     removes need for dropout -> reduces overfitting -> hence a regularization technique
 
+Chapter 8: Batch normalization
+    During gradient descent training, we update each parameter by its gradient so implicitly we assume that the remaining parameters are held constant. However, we 
+    update all parameters simultaneously.
+    let H be a minibatch of activations at a layer to be normalized. H is mean subtracted and std-dev normalized w.r.t the features (i.e. mean is the average over all samples for each feature)
+    backpropagation is done through the mean and the std-dev expressions; hence the algorithm avoids scenarios where only the mean and std dev are changing
+    during test time, mean and std dev from training runs are used
+    since the batch normalization turns activations into zero mean unit std-dev, we add back linearity by introducing parameters: gamma*batch_normed_activations + beta
+    by doing so, the algorithm can explicitly control the mean and std-dev of the activations
+    batch norm is done on the pre-activation values (i.e. post affine transform on the previous layer's activations - with batch norm, the constant need not be added)
+    for convolutional networks, the mean and std dev stats are maintained to be the same irrespective of the spatial location - hence only one mean, std dev stat per feature map
+    this is computed by avging over all preactivation values in the feature map
+    
 
     
 
